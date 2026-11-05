@@ -3,3 +3,9 @@
 *.elf
 *.map
 .DS_Store
+
+# Local TRMNL device credentials and screen cache
+trmnl.json
+trmnl-screen.bmp
+trmnl-screen.tmp
+trmnl-screen.old

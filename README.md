@@ -1,5 +1,8 @@
 # Flowe OS
 
+This fork adds **TRMNL functional sleep** with hosted or self-hosted servers.
+See [setup and behavior](docs/trmnl/README.md). All other Flowe features remain intact.
+
 Open-source firmware for the pocket-size [Xteink X3 or X4](https://www.xteink.com)
 e-ink device. Paired with the Flowe iOS app, it puts your priorities, agenda,
 and notifications on calm paper-like glass — and starts focus blocks that

@@ -1,3 +1,4 @@
+#include "net/TrmnlSleep.h"
 // xphone-os M1 — input + scene manager + launcher shell.
 //
 // Staged boot (kept from M0.1): serial -> display -> SD self-update (early,
@@ -915,7 +916,7 @@ static void pumpNapPoster() {
     gNapChangeAtMs = millis();
     return;
   }
-  if (!gNapChangeAtMs || millis() - gNapChangeAtMs < kNapPosterSettleMs) return;
+  if (!TrmnlSleep::due() && (!gNapChangeAtMs || millis() - gNapChangeAtMs < kNapPosterSettleMs)) return;
   gNapChangeAtMs = 0;
   const unsigned long t0 = millis();
   if (Sleep::refreshNapPoster(gfx)) {

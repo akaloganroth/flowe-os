@@ -1,4 +1,5 @@
 #include "Sleep.h"
+#include "net/TrmnlSleep.h"
 
 #include <Arduino.h>
 
@@ -107,6 +108,7 @@ uint32_t frameFingerprint(Gfx& gfx) {
 uint32_t gLastPosterFingerprint = 0;  // the poster on the glass, 0 = none
 
 void composeSleepScreen(Gfx& gfx, const bool napping) {
+  if (TrmnlSleep::draw(gfx)) return;
   gfx.clear();
 
   // Sleeping FROM the Workout scene: the workout list replaces the priorities
@@ -314,12 +316,14 @@ void formatMinutes(char* out, const size_t n, const uint16_t min) {
 
 void drawSleepScreenNow(Gfx& gfx, const bool napping) {
   CpuBoost boost;  // the chip idles at 40 MHz; composing the poster there took 4x longer
+  TrmnlSleep::update();
   drawSleepScreen(gfx, napping);
 }
 
 bool refreshNapPoster(Gfx& gfx) {
   CpuBoost boost;
   SCENES.waitFlushIdle();
+  TrmnlSleep::update();
   composeSleepScreen(gfx, /*napping=*/true);
   const uint32_t fp = frameFingerprint(gfx);
   if (fp == gLastPosterFingerprint) return false;  // same picture: leave the glass alone
