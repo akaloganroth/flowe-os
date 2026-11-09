@@ -1,7 +1,9 @@
 # Flowe OS
 
 This fork adds **TRMNL functional sleep** with hosted or self-hosted servers.
-See [setup and behavior](docs/trmnl/README.md). All other Flowe features remain intact.
+See [setup and behavior](docs/trmnl/README.md).
+An experimental **ESP32-S3 X4 Pro** target is also available: [installation and controls](docs/x4pro/README.md).
+The Pro requires its own build; X3/X4 binaries are not compatible.
 
 Open-source firmware for the pocket-size [Xteink X3 or X4](https://www.xteink.com)
 e-ink device. Paired with the Flowe iOS app, it puts your priorities, agenda,

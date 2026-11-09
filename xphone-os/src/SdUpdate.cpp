@@ -13,6 +13,7 @@
 // /update.bin.flashed so boot never loops reflashing the same image.
 
 #include "SdUpdate.h"
+#include "FirmwareTarget.h"
 
 #include <Arduino.h>
 #include <BoardConfig.h>
@@ -24,6 +25,7 @@
 #include <BatteryMonitor.h>
 #include <esp_rom_crc.h>
 #include <esp_system.h>
+#include <esp_app_format.h>
 #include <mbedtls/sha256.h>
 #include <spi_flash_mmap.h>
 
@@ -197,6 +199,11 @@ bool validateImage(FsFile& file, size_t partitionSize) {
   }
   if (header[0] != IMAGE_MAGIC) {
     SDUP_LOG("validate: bad magic 0x%02X", header[0]);
+    return false;
+  }
+  const uint16_t chip = uint16_t(header[12]) | (uint16_t(header[13]) << 8);
+  if (!firmware_target::matches(header, sizeof(header), CONFIG_IDF_FIRMWARE_CHIP_ID)) {
+    SDUP_LOG("validate: wrong MCU image (%u)", unsigned(chip));
     return false;
   }
   const uint8_t segCount = header[1];

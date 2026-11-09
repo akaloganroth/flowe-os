@@ -37,6 +37,7 @@
 
 #include <Arduino.h>
 #include <InputManager.h>
+#include "TouchNavigation.h"
 
 #include <cstdint>
 
@@ -70,7 +71,11 @@ class Input {
   // manager is owned by that task and update() only drains latched events.
   void beginTask() {
     if (_task) return;
+#if FREEINK_DEVICE_X4PRO
+    xTaskCreatePinnedToCore(&Input::taskTrampoline, "xp_input", 6144, this, 2, &_task, 0);
+#else
     xTaskCreate(&Input::taskTrampoline, "xp_input", 2560, this, 2, &_task);
+#endif
   }
 
   // Stop sampling before deep sleep / restart so the task isn't mid-ADC-read
@@ -248,7 +253,28 @@ class Input {
         // else: the long-press already consumed this hold — no tap.
       }
     }
+#if FREEINK_DEVICE_X4PRO
+    // SDK coordinates are native landscape; Flowe defaults to portrait.
+    // Gestures emulate the existing six-key contract, preserving every scene.
+    float x0, y0, x1, y1;
+    if (_mgr.wasSwipe(x0, y0, x1, y1)) {
+      const auto direction = touch_navigation::swipe(x0, y0, x1, y1);
+      const Btn buttons[] = {Btn::Up, Btn::Down, Btn::Left, Btn::Right};
+      const Btn b = buttons[static_cast<unsigned>(direction)];
+      tapBits |= 1u << static_cast<uint8_t>(b);
+    } else if (_mgr.wasTouchTap(x0, y0)) {
+      tapBits |= 1u << static_cast<uint8_t>(Btn::Confirm);
+    }
+    if (_mgr.wasTouchLongPress(x0, y0)) longBits |= 1u << static_cast<uint8_t>(Btn::Confirm);
+    if (_mgr.wasHomeKeyTapped()) tapBits |= 1u << static_cast<uint8_t>(Btn::Back);
+    if (_mgr.wasHomeKeyLongPressed()) longBits |= 1u << static_cast<uint8_t>(Btn::Back);
+    if (tapBits || longBits || _mgr.isTouchPressed()) _lastActivityMs = now;
+#endif
+#if FREEINK_DEVICE_X4PRO
+    const bool any = _mgr.wasAnyPressed() || tapBits || longBits;
+#else
     const bool any = _mgr.wasAnyPressed();
+#endif
     portENTER_CRITICAL(&_mux);
     _pendingTap |= tapBits;
     _pendingLong |= longBits;

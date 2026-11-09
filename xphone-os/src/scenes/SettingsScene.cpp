@@ -1,4 +1,5 @@
 #include "SettingsScene.h"
+#include "../X4Pro.h"
 
 #include "../Sleep.h"
 
@@ -43,16 +44,23 @@ constexpr int kRowPad = 16;    // row height = lineHeight(bold) + kRowPad
 constexpr const char* kMenuLabelsShip[6] = {"Wi-Fi", "Sleep", "SD Firmware Update", "Icon style", "Restart", "About"};
 constexpr const char* kMenuLabelsExplore[7] = {"Wi-Fi", "Sleep", "Home layout", "SD Firmware Update",
                                                "Icon style", "Restart", "About"};
-constexpr int kMenuCount = kExploreHomeApps ? 7 : 6;
-inline const char* menuLabel(const int i) { return kExploreHomeApps ? kMenuLabelsExplore[i] : kMenuLabelsShip[i]; }
+constexpr int kBaseMenuCount = kExploreHomeApps ? 7 : 6;
+constexpr int kMenuCount = kBaseMenuCount + (FREEINK_DEVICE_X4PRO ? 2 : 0);
+inline const char* menuLabel(const int i) {
+  if (i == kBaseMenuCount) return "Frontlight";
+  if (i == kBaseMenuCount + 1) return "Warmth";
+  return kExploreHomeApps ? kMenuLabelsExplore[i] : kMenuLabelsShip[i];
+}
 // What a menu index means: the Home layout row only exists when exploring.
-enum class MenuAction : uint8_t { Wifi, Sleep, HomeLayout, Picker, IconStyle, Restart, About };
+enum class MenuAction : uint8_t { Wifi, Sleep, HomeLayout, Picker, IconStyle, Restart, About, Brightness, Warmth };
 inline MenuAction menuAction(const int i) {
   static constexpr MenuAction kShip[6] = {MenuAction::Wifi, MenuAction::Sleep, MenuAction::Picker,
                                           MenuAction::IconStyle, MenuAction::Restart, MenuAction::About};
   static constexpr MenuAction kExplore[7] = {MenuAction::Wifi,      MenuAction::Sleep,   MenuAction::HomeLayout,
                                              MenuAction::Picker,    MenuAction::IconStyle, MenuAction::Restart,
                                              MenuAction::About};
+  if (i == kBaseMenuCount) return MenuAction::Brightness;
+  if (i == kBaseMenuCount + 1) return MenuAction::Warmth;
   return kExploreHomeApps ? kExplore[i] : kShip[i];
 }
 constexpr int kSleepRows = kExploreHomeApps ? 3 : 2;
@@ -223,6 +231,18 @@ void SettingsScene::handleInput(Input& in) {
       if (in.wasPressed(Btn::Down) || in.wasPressed(Btn::Right)) moveSel(_menuSel, kMenuCount, +1);
       if (in.wasPressed(Btn::Confirm)) {
         switch (menuAction(_menuSel)) {
+          case MenuAction::Brightness:
+#if FREEINK_DEVICE_X4PRO
+            X4Pro::cycleBrightness();
+#endif
+            markDirty();
+            break;
+          case MenuAction::Warmth:
+#if FREEINK_DEVICE_X4PRO
+            X4Pro::cycleWarmth();
+#endif
+            markDirty();
+            break;
           case MenuAction::Wifi:
             showWifi();  // the device's Wi-Fi screen (E1); a sync itself starts from the phone
             return;
@@ -373,6 +393,13 @@ void SettingsScene::renderMenu(Gfx& gfx) {
     char sleepValue[24];
     const char* value = nullptr;
     switch (menuAction(i)) {
+#if FREEINK_DEVICE_X4PRO
+      case MenuAction::Brightness:
+      case MenuAction::Warmth:
+        snprintf(sleepValue, sizeof(sleepValue), "%u%%", menuAction(i) == MenuAction::Brightness ? X4Pro::brightness() : X4Pro::warmth());
+        value = sleepValue;
+        break;
+#endif
       case MenuAction::Sleep: {
         char nap[12], off[12];
         Sleep::formatMinutes(nap, sizeof(nap), Sleep::napAfterMin());
@@ -397,7 +424,7 @@ void SettingsScene::renderMenu(Gfx& gfx) {
   // Footer: firmware version + build env, bottom of the content area
   // (mirrors CrossPoint showing CROSSPOINT_VERSION in the settings header).
   char footer[64];
-  snprintf(footer, sizeof(footer), "xphone-os %s (%s)", XPHONE_VERSION, gDeviceIsX3 ? "x3" : "x4");
+  snprintf(footer, sizeof(footer), "xphone-os %s (%s)", XPHONE_VERSION, deviceName());
   const int footY = gfx.height() - Scene::SOFTKEY_BAR_H - gfx.lineHeight(kFontRegular) - 6;
   gfx.drawTextCentered(kFontRegular, gfx.width() / 2, footY, footer);
 }

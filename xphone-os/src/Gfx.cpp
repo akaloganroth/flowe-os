@@ -16,14 +16,20 @@ bool Gfx::begin() {
 }
 
 bool Gfx::releaseFramebufferForSync() {
+#if FREEINK_DEVICE_X4PRO
+  return false;  // S3 framebuffer lives in PSRAM; no internal-RAM loan needed.
+#else
   _fb = nullptr;  // invalidate the borrowed pointer BEFORE the SDK frees it
   if (_d.releaseFramebufferForSync()) return true;
   _fb = _d.getFrameBuffer();  // unsupported/static path keeps normal drawing
   return false;
+#endif
 }
 
 bool Gfx::restoreFramebufferAfterSync() {
+#if !FREEINK_DEVICE_X4PRO
   if (!_d.restoreFramebufferAfterSync()) return false;
+#endif
   _fb = _d.getFrameBuffer();
   return _fb != nullptr;
 }
@@ -653,6 +659,10 @@ void Gfx::flushWindowFlash(const int x, const int y, const int w, const int h) {
   const int nh = x1 - x0;
   const int nw = nx1 - nx0 + 1;
   if (nx0 < 0 || nw <= 0 || ny0 < 0 || ny0 + nh > nativeH) return;
+#if FREEINK_DEVICE_X4PRO
+  _d.displayWindow(static_cast<uint16_t>(nx0), static_cast<uint16_t>(ny0), static_cast<uint16_t>(nw), static_cast<uint16_t>(nh));
+#else
   _d.displayWindowFlash(static_cast<uint16_t>(nx0), static_cast<uint16_t>(ny0), static_cast<uint16_t>(nw),
                         static_cast<uint16_t>(nh));
+#endif
 }

@@ -1,4 +1,5 @@
 #include "Sleep.h"
+#include "X4Pro.h"
 #include "net/TrmnlSleep.h"
 
 #include <Arduino.h>
@@ -567,6 +568,9 @@ void sleepNow(Gfx& gfx, Input& input) {
   //    during sleep — on battery the MCU is then completely powered off and
   //    the power button hard-wires a power-up regardless of the wakeup
   //    source below.
+#if FREEINK_DEVICE_X4PRO
+  X4Pro::deepSleep();  // S3 ext1 wake; GPIO13 is display CS, not a battery latch.
+#else
   constexpr gpio_num_t kBatteryLatchPin = GPIO_NUM_13;
 #if XP_LIGHT_SLEEP_LIBS
   // P4 undo before DEEP sleep. Light sleep keeps every pad in its active
@@ -597,6 +601,7 @@ void sleepNow(Gfx& gfx, Input& input) {
     esp_restart();
   }
   esp_deep_sleep_start();
+#endif
   while (true) {  // esp_deep_sleep_start() does not return; satisfy [[noreturn]]
     delay(1000);
   }

@@ -1,0 +1,30 @@
+name: Firmware build checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x3, x4pro]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install platformio
+      - run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined xphone-os/test/x4pro_port.cpp -o /tmp/port-test
+          /tmp/port-test
+          c++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined xphone-os/test/trmnl_bitmap.cpp -o /tmp/bitmap-test
+          /tmp/bitmap-test
+      - run: pio run -d xphone-os -e ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flowe-${{ matrix.target }}-app-only
+          path: xphone-os/.pio/build/${{ matrix.target }}/firmware.bin

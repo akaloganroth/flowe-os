@@ -1,4 +1,5 @@
 #include "net/TrmnlSleep.h"
+#include "X4Pro.h"
 // xphone-os M1 — input + scene manager + launcher shell.
 //
 // Staged boot (kept from M0.1): serial -> display -> SD self-update (early,
@@ -281,7 +282,12 @@ static void boot() {
       }
     }
   }
+#if FREEINK_DEVICE_X4PRO
+  X4Pro::begin();
+  freeink::applyXteinkDisplayController();
+#else
   gDeviceIsX3 = freeink::selectXteinkDevice();
+#endif
   if (gDeviceIsX3) Sleep::imuSleepAtBoot();  // P1.2: the unused motion sensor sleeps from boot
   // Say WHICH build this is, before anything can hang. A stuck unit cannot
   // reach the About screen, so until now a field report could not name its
@@ -289,7 +295,7 @@ static void boot() {
   // kind of thing where "which version are you on" IS the whole diagnosis.
   // The web flasher reads this line straight off the USB serial.
   Serial.printf("[xphone-os] flowe %s (%s)\n", XPHONE_VERSION, XPHONE_GIT_REV_STR);
-  Serial.printf("[xphone-os] boot: xteink detect -> %s\n", gDeviceIsX3 ? "X3" : "X4");
+  Serial.printf("[xphone-os] boot: xteink detect -> %s\n", deviceName());
   stallwatch::begin();
   if (gDeviceIsX3) {
     display.setDisplayX3();
@@ -329,7 +335,7 @@ static void boot() {
       if (f) {
         char line[192];
         const int n = snprintf(line, sizeof(line), "flowe %s (%s) on %s: %s\n", XPHONE_VERSION,
-                               XPHONE_GIT_REV_STR, gDeviceIsX3 ? "X3" : "X4", stall);
+                               XPHONE_GIT_REV_STR, deviceName(), stall);
         if (n > 0) f.write(reinterpret_cast<const uint8_t*>(line), static_cast<size_t>(n));
         f.flush();
         f.close();
@@ -357,7 +363,9 @@ static void boot() {
   {
     Preferences p;  // bench A/B: `bootfull on` keeps the 3.9 s FULL as the first clear on the X4
     if (p.begin("bench", true)) {
+#if !FREEINK_DEVICE_X4PRO
       if (p.getUChar("bootfull", 0)) display.setFirstRefreshFull(true);
+#endif
       p.end();
     }
   }
@@ -941,6 +949,7 @@ static void enterNap(const char* why) {
   gNapOnUsb = usbHostConnected();
   Sleep::requestFreshCardsNow();  // a connected phone refreshes the lists before the poster (2026-09-17)
   Sleep::drawSleepScreenNow(gfx, /*napping=*/true);
+  X4Pro::nap(true);
   SCENES.setPaused(true);  // nothing paints over the sleep screen (the link dot, cards)
   snapshotNapRevisions();
   gNapChangeAtMs = 0;
@@ -952,6 +961,7 @@ static void enterNap(const char* why) {
 static void exitNap(const char* why) {
   if (!gNapping) return;
   gNapping = false;
+  X4Pro::nap(false);
   gSleepPosterPreview = false;
   gNapCleanAtMs = 0;  // a wake before the clean: the FAST differential works from the poster as it is
   Serial.printf("[xphone-os] nap: wake (%s)\n", why);
@@ -2093,6 +2103,7 @@ static void pumpDevConsole() {
       }
       continue;
     }
+#if !FREEINK_DEVICE_X4PRO
     if (!strncmp(line, "x4temp", 6)) {
       // Bench lever: the temperature the X4 panel believes for a HALF refresh.
       //   x4temp <celsius> | x4temp default | (no arg: print)
@@ -2104,6 +2115,7 @@ static void pumpDevConsole() {
       else Serial.printf("[xphone-os] devcon: x4temp %d C\n", (int)t);
       continue;
     }
+#endif
     if (!strncmp(line, "flushtier", 9)) {
       // Bench lever: flush the framebuffer as it is, with a chosen tier,
       // through the flush task. Times land in the usual draw/refresh line.
@@ -2166,6 +2178,7 @@ static void pumpDevConsole() {
       }
       continue;
     }
+#if !FREEINK_DEVICE_X4PRO
     if (!strncmp(line, "paneloff", 8)) {
       // P2 bench lever: power the panel booster down after every fast refresh.
       //   paneloff on | off | (no arg: print)
@@ -2175,6 +2188,7 @@ static void pumpDevConsole() {
       Serial.printf("[xphone-os] devcon: paneloff %s\n", display.idlePowerOff() ? "on" : "off");
       continue;
     }
+#endif
 #if CONFIG_PM_ENABLE
     if (!strncmp(line, "dfs", 3) && (line[3] == 0 || line[3] == ' ')) {
       // Lane-9 DFS experiment: let the CPU downclock between loop ticks.
@@ -2617,6 +2631,7 @@ void loop() {
   if (gNapping) {
     if (gCurrentSceneId != gNapScene) {
       gNapping = false;  // a phone-started session switched scenes; it paints itself
+      X4Pro::nap(false);
       gSleepPosterPreview = false;
       SCENES.setPaused(false);
     } else {
